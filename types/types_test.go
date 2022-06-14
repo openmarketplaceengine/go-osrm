@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	geoLegacy "github.com/paulmach/go.geo"
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"testing"
@@ -39,9 +38,9 @@ func TestUnmarshalGeometryFromPolyline(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, g.LineString, 3)
-	require.Equal(t, *geoLegacy.NewPoint(40.123563, -73.965432), g.LineString[0])
-	require.Equal(t, *geoLegacy.NewPoint(40.423574, -73.235698), g.LineString[1])
-	require.Equal(t, *geoLegacy.NewPoint(40.645325, -73.973462), g.LineString[2])
+	require.Equal(t, orb.Point{40.123563, -73.965432}, g.LineString[0])
+	require.Equal(t, orb.Point{40.423574, -73.235698}, g.LineString[1])
+	require.Equal(t, orb.Point{40.645325, -73.973462}, g.LineString[2])
 }
 
 func TestUnmarshalGeometryFromNull(t *testing.T) {
