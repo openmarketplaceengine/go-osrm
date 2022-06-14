@@ -1,6 +1,7 @@
-package osrm
+package match
 
 import (
+	"github.com/openmarketplaceengine/go-osrm/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,7 @@ import (
 func TestEmptyMatchRequestOptions(t *testing.T) {
 	cases := []struct {
 		name        string
-		request     MatchRequest
+		request     Request
 		expectedURI string
 	}{
 		{
@@ -18,33 +19,33 @@ func TestEmptyMatchRequestOptions(t *testing.T) {
 		},
 		{
 			name: "with timestamps and radiuses",
-			request: MatchRequest{
+			request: Request{
 				Timestamps: []int64{0, 1, 2},
-				Radiuses:   []float64{0.123123, 0.12312},
+				Radii:      []float64{0.123123, 0.12312},
 			},
 			expectedURI: "geometries=polyline6&radiuses=0.123123;0.12312&timestamps=0;1;2",
 		},
 		{
 			name: "with gaps and tidy",
-			request: MatchRequest{
+			request: Request{
 				Timestamps: []int64{0, 1, 2},
-				Radiuses:   []float64{0.123123, 0.12312},
-				Gaps:       GapsSplit,
-				Tidy:       TidyTrue,
+				Radii:      []float64{0.123123, 0.12312},
+				Gaps:       types.GapsSplit,
+				Tidy:       types.TidyTrue,
 			},
 			expectedURI: "gaps=split&geometries=polyline6&radiuses=0.123123;0.12312&tidy=true&timestamps=0;1;2",
 		},
 		{
 			name: "with hints",
-			request: MatchRequest{
+			request: Request{
 				Hints: []string{"a", "b", "c", "d"},
 			},
 			expectedURI: "geometries=polyline6&hints=a;b;c;d",
 		},
 		{
 			name: "with bearings",
-			request: MatchRequest{
-				Bearings: []Bearing{
+			request: Request{
+				Bearings: []types.Bearing{
 					{0, 20}, {10, 20},
 				},
 			},
@@ -52,19 +53,19 @@ func TestEmptyMatchRequestOptions(t *testing.T) {
 		},
 		{
 			name: "custom overview option",
-			request: MatchRequest{
-				Overview:    OverviewSimplified,
-				Geometries:  GeometriesGeojson,
-				Annotations: AnnotationsFalse,
-				Tidy:        TidyFalse,
-				Steps:       StepsFalse,
+			request: Request{
+				Overview:    types.OverviewSimplified,
+				Geometries:  types.GeometriesGeojson,
+				Annotations: types.AnnotationsFalse,
+				Tidy:        types.TidyFalse,
+				Steps:       types.StepsFalse,
 			},
 			expectedURI: "annotations=false&geometries=geojson&overview=simplified&steps=false&tidy=false",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			assert.Equal(t, c.expectedURI, c.request.request().options.encode())
+			assert.Equal(t, c.expectedURI, c.request.Request().Options.Encode())
 		})
 	}
 }

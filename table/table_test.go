@@ -1,4 +1,4 @@
-package osrm
+package table
 
 import (
 	"testing"
@@ -7,14 +7,14 @@ import (
 )
 
 func TestEmptyTableRequestOptions(t *testing.T) {
-	req := TableRequest{}
-	assert.Empty(t, req.request().options.encode())
+	req := Request{}
+	assert.Empty(t, req.Request().Options.Encode())
 }
 
 func TestNotEmptyTableRequestOptions(t *testing.T) {
-	req := TableRequest{
+	req := Request{
 		Sources:      []int{0, 1, 2},
 		Destinations: []int{1, 3},
 	}
-	assert.Equal(t, "destinations=1;3&sources=0;1;2", req.request().options.encode())
+	assert.Equal(t, "destinations=1;3&sources=0;1;2", req.Request().Options.Encode())
 }

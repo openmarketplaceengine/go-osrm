@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/openmarketplaceengine/go-osrm/types"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -30,7 +31,7 @@ func newClient(serverURL string, c HTTPClient) client {
 }
 
 // doRequest makes GET request to OSRM server and decodes the given JSON
-func (c client) doRequest(ctx context.Context, in *request, out interface{}) error {
+func (c client) doRequest(ctx context.Context, in *types.Request, out interface{}) error {
 	url, err := in.URL(c.serverURL)
 	if err != nil {
 		return err

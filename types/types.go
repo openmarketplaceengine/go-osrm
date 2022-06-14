@@ -1,13 +1,15 @@
-package osrm
+package types
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/paulmach/orb/geojson"
+	"math"
 	"net/url"
 	"strings"
 
-	geo "github.com/paulmach/go.geo"
-	geojson "github.com/paulmach/go.geojson"
+	"github.com/paulmach/orb"
 )
 
 const (
@@ -17,50 +19,70 @@ const (
 
 // Geometry represents a points set
 type Geometry struct {
-	geo.Path
+	geojson.LineString
 }
 
 // NewGeometryFromPath creates a geometry from a path.
-func NewGeometryFromPath(path geo.Path) Geometry {
-	return Geometry{path}
+func NewGeometryFromPath(path geojson.LineString) Geometry {
+	return Geometry{LineString: path}
 }
 
-// NewGeometryFromPointSet creates a geometry from points set.
-func NewGeometryFromPointSet(ps geo.PointSet) Geometry {
-	return NewGeometryFromPath(geo.Path{PointSet: ps})
+// NewGeometryFromMultiPoint creates a geometry from points set.
+func NewGeometryFromMultiPoint(ps orb.MultiPoint) Geometry {
+	return NewGeometryFromPath(geojson.LineString(ps))
 }
 
 // Polyline generates a polyline in Google format
 func (g *Geometry) Polyline(factor ...int) string {
-	if len(factor) == 0 {
-		return g.Encode(polyline5Factor)
+	f := 1.0e5
+	if len(factor) != 0 {
+		f = float64(factor[0])
 	}
 
-	return g.Encode(factor[0])
+	var pLat int
+	var pLng int
+
+	var result bytes.Buffer
+	scratch1 := make([]byte, 0, 50)
+	scratch2 := make([]byte, 0, 50)
+
+	for _, p := range g.LineString {
+		lat5 := int(math.Floor(p.Lat()*f + 0.5))
+		lng5 := int(math.Floor(p.Lon()*f + 0.5))
+
+		deltaLat := lat5 - pLat
+		deltaLng := lng5 - pLng
+
+		pLat = lat5
+		pLng = lng5
+
+		result.Write(append(encodeSignedNumber(deltaLat, scratch1), encodeSignedNumber(deltaLng, scratch2)...))
+
+		scratch1 = scratch1[:0]
+		scratch2 = scratch2[:0]
+	}
+
+	return result.String()
+}
+
+func encodeSignedNumber(num int, result []byte) []byte {
+	shiftedNum := num << 1
+
+	if num < 0 {
+		shiftedNum = ^shiftedNum
+	}
+
+	for shiftedNum >= 0x20 {
+		result = append(result, byte(0x20|(shiftedNum&0x1f)+63))
+		shiftedNum >>= 5
+	}
+
+	return append(result, byte(shiftedNum+63))
 }
 
 // UnmarshalJSON parses a geo path from points set or a polyline
 func (g *Geometry) UnmarshalJSON(b []byte) error {
-	if len(b) == 0 {
-		return nil
-	}
-
-	var encoded string
-	if err := json.Unmarshal(b, &encoded); err == nil {
-		g.Path = *geo.NewPathFromEncoding(encoded, polyline6Factor)
-		return nil
-	}
-
-	geom, err := geojson.UnmarshalGeometry(b)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal geojson geometry, err: %v", err)
-	}
-	if !geom.IsLineString() {
-		return fmt.Errorf("unexpected geometry type: %v", geom.Type)
-	}
-	g.Path = *geo.NewPathFromXYSlice(geom.LineString)
-
-	return nil
+	return g.LineString.UnmarshalJSON(b)
 }
 
 // MarshalJSON generates a polyline in Google polyline6 format
@@ -116,7 +138,8 @@ func (s Steps) String() string {
 	return string(s)
 }
 
-// Gaps represents a gaps param for osrm5 match request
+// Gaps represents a gaps param for osrm5 match request.
+// Allows the input track splitting based on huge timestamp gaps between points.
 type Gaps string
 
 // Supported gaps param values
@@ -174,35 +197,35 @@ func (c ContinueStraight) String() string {
 	return string(c)
 }
 
-// request contains parameters for OSRM query
-type request struct {
-	profile string
-	coords  Geometry
-	service string
-	options options
+// Request contains parameters for OSRM query
+type Request struct {
+	Profile string
+	Coords  Geometry
+	Service string
+	Options Options
 }
 
 // URL generates a url for OSRM request
-func (r *request) URL(serverURL string) (string, error) {
-	if r.service == "" {
+func (r *Request) URL(serverURL string) (string, error) {
+	if r.Service == "" {
 		return "", ErrEmptyServiceName
 	}
-	if r.profile == "" {
+	if r.Profile == "" {
 		return "", ErrEmptyProfileName
 	}
-	if r.coords.Length() == 0 {
+	if len(r.Coords.LineString) == 0 {
 		return "", ErrNoCoordinates
 	}
 	// http://{server}/{service}/{version}/{profile}/{coordinates}[.{format}]?option=value&option=value
 	url := strings.Join([]string{
 		serverURL, // server
-		r.service, // service
-		version,   // version
-		r.profile, // profile
-		"polyline(" + url.PathEscape(r.coords.Polyline(polyline5Factor)) + ")", // coordinates
+		r.Service, // service
+		"v1",      // version
+		r.Profile, // profile
+		"polyline(" + url.PathEscape(r.Coords.Polyline(polyline5Factor)) + ")", // coordinates
 	}, "/")
-	if len(r.options) > 0 {
-		url += "?" + r.options.encode() // options
+	if len(r.Options) > 0 {
+		url += "?" + r.Options.Encode() // options
 	}
 	return url, nil
 }
@@ -216,7 +239,7 @@ func (b Bearing) String() string {
 	return fmt.Sprintf("%d,%d", b.Value, b.Range)
 }
 
-func bearings(br []Bearing) string {
+func Bearings(br []Bearing) string {
 	s := make([]string, len(br))
 	for i, b := range br {
 		s[i] = b.String()

@@ -1,12 +1,22 @@
-package osrm
+package types
 
 import (
 	"encoding/json"
+	geoLegacy "github.com/paulmach/go.geo"
+	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/geojson"
 	"testing"
 
-	"github.com/paulmach/go.geo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+var geometry = NewGeometryFromMultiPoint(
+	orb.MultiPoint{
+		{-73.990185, 40.714701},
+		{-73.991801, 40.717571},
+		{-73.985751, 40.715651},
+	},
 )
 
 func TestUnmarshalGeometryFromGeojson(t *testing.T) {
@@ -16,9 +26,9 @@ func TestUnmarshalGeometryFromGeojson(t *testing.T) {
 	err := json.Unmarshal(in, &g)
 
 	require.Nil(t, err)
-	require.Len(t, g.PointSet, 2)
-	require.Equal(t, *geo.NewPoint(-73.982253, 40.742926), g.PointSet[0])
-	require.Equal(t, *geo.NewPoint(-73.985253, 40.742926), g.PointSet[1])
+	require.Len(t, g.LineString, 2)
+	require.Equal(t, orb.Point{-73.982253, 40.742926}, g.LineString[0])
+	require.Equal(t, orb.Point{-73.985253, 40.742926}, g.LineString[1])
 }
 
 func TestUnmarshalGeometryFromPolyline(t *testing.T) {
@@ -27,11 +37,11 @@ func TestUnmarshalGeometryFromPolyline(t *testing.T) {
 
 	err := json.Unmarshal(in, &g)
 
-	require.Nil(t, err)
-	require.Len(t, g.PointSet, 3)
-	require.Equal(t, *geo.NewPoint(40.123563, -73.965432), g.PointSet[0])
-	require.Equal(t, *geo.NewPoint(40.423574, -73.235698), g.PointSet[1])
-	require.Equal(t, *geo.NewPoint(40.645325, -73.973462), g.PointSet[2])
+	require.NoError(t, err)
+	require.Len(t, g.LineString, 3)
+	require.Equal(t, *geoLegacy.NewPoint(40.123563, -73.965432), g.LineString[0])
+	require.Equal(t, *geoLegacy.NewPoint(40.423574, -73.235698), g.LineString[1])
+	require.Equal(t, *geoLegacy.NewPoint(40.645325, -73.973462), g.LineString[2])
 }
 
 func TestUnmarshalGeometryFromNull(t *testing.T) {
@@ -39,8 +49,8 @@ func TestUnmarshalGeometryFromNull(t *testing.T) {
 	in := []byte(`null`)
 	err := json.Unmarshal(in, &g)
 
-	require.Nil(t, err)
-	require.Equal(t, 0, len(g.Path.PointSet))
+	require.NoError(t, err)
+	require.Equal(t, 0, len(g.LineString))
 }
 
 func TestUnmarshalGeometryFromEmptyJSON(t *testing.T) {
@@ -53,12 +63,10 @@ func TestUnmarshalGeometryFromEmptyJSON(t *testing.T) {
 
 func TestPolylineGeometry(t *testing.T) {
 	g := Geometry{
-		Path: geo.Path{
-			PointSet: []geo.Point{
-				{40.123563, -73.965432},
-				{40.423574, -73.235698},
-				{40.645325, -73.973462},
-			},
+		LineString: geojson.LineString{
+			{40.123563, -73.965432},
+			{40.423574, -73.235698},
+			{40.645325, -73.973462},
 		},
 	}
 
@@ -69,10 +77,10 @@ func TestPolylineGeometry(t *testing.T) {
 }
 
 func TestRequestURLWithEmptyOptions(t *testing.T) {
-	req := request{
-		profile: "something",
-		coords:  geometry,
-		service: "foobar",
+	req := Request{
+		Profile: "something",
+		Coords:  geometry,
+		Service: "foobar",
 	}
 	url, err := req.URL("localhost")
 	require.Nil(t, err)
@@ -80,13 +88,13 @@ func TestRequestURLWithEmptyOptions(t *testing.T) {
 }
 
 func TestRequestURLWithOptions(t *testing.T) {
-	opts := options{}
-	opts.set("baz", "quux")
-	req := request{
-		profile: "something",
-		coords:  geometry,
-		service: "foobar",
-		options: opts,
+	opts := Options{}
+	opts.Set("baz", "quux")
+	req := Request{
+		Profile: "something",
+		Coords:  geometry,
+		Service: "foobar",
+		Options: opts,
 	}
 	url, err := req.URL("localhost")
 	require.Nil(t, err)
@@ -94,7 +102,7 @@ func TestRequestURLWithOptions(t *testing.T) {
 }
 
 func TestRequestURLWithEmptyService(t *testing.T) {
-	req := request{}
+	req := Request{}
 	url, err := req.URL("localhost")
 	require.NotNil(t, err)
 	assert.Equal(t, ErrEmptyServiceName, err)
@@ -102,8 +110,8 @@ func TestRequestURLWithEmptyService(t *testing.T) {
 }
 
 func TestRequestURLWithEmptyProfile(t *testing.T) {
-	req := request{
-		service: "foobar",
+	req := Request{
+		Service: "foobar",
 	}
 	url, err := req.URL("localhost")
 	require.NotNil(t, err)
@@ -112,9 +120,9 @@ func TestRequestURLWithEmptyProfile(t *testing.T) {
 }
 
 func TestRequestURLWithoutCoords(t *testing.T) {
-	req := request{
-		profile: "something",
-		service: "foobar",
+	req := Request{
+		Profile: "something",
+		Service: "foobar",
 	}
 	url, err := req.URL("localhost")
 	require.NotNil(t, err)

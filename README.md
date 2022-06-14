@@ -29,7 +29,7 @@ import (
 	"time"
 
 	osrm "github.com/openmarketplaceengine/go-osrm"
-	geo "github.com/paulmach/go.geo"
+	geo "github.com/paulmach/orb"
 )
 
 func main() {
