@@ -9,15 +9,29 @@ import (
 	"github.com/paulmach/orb"
 )
 
-// Request represents a request to the route method
+// Request represents a request to the Route method.
+// The Route service finds the fastest route between coordinates in the supplied
+// order.
 type Request struct {
-	Profile          string
-	Coordinates      types.Coordinates
-	Bearings         []types.Bearing
-	Steps            types.Steps
-	Annotations      types.Annotations
-	Overview         types.Overview
-	Geometries       types.Geometries
+	Profile     string
+	Coordinates types.Coordinates
+	Bearings    []types.Bearing
+
+	// Returned route steps for each route leg
+	Steps types.Steps
+
+	// Returns additional metadata for each coordinate along the route geometry.
+	Annotations types.Annotations
+
+	// Add overview geometry either full, simplified according to highest zoom
+	// level it could be display on, or not at all.
+	Overview types.Overview
+
+	// Returned route geometry format (influences overview and per step)
+	Geometries types.Geometries
+
+	// Forces the route to keep going straight at waypoints constraining uturns
+	// there even if it would be faster. Default value depends on the profile.
 	ContinueStraight types.ContinueStraight
 	Waypoints        []int
 }
