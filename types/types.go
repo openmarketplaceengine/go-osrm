@@ -1,93 +1,80 @@
 package types
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
-	"math"
+	"github.com/twpayne/go-polyline"
 	"net/url"
 	"strings"
-
-	"github.com/paulmach/orb"
 )
 
-const (
-	polyline5Factor = 1.0e5
-	polyline6Factor = 1.0e6
-)
-
-// Geometry represents a points set
-type Geometry struct {
-	geojson.LineString
+type Coordinates struct {
+	geojson.MultiPoint
 }
 
-// NewGeometryFromPath creates a geometry from a path.
-func NewGeometryFromPath(path geojson.LineString) Geometry {
-	return Geometry{LineString: path}
+func coordinatesFromLineString(ls geojson.LineString) Coordinates {
+	return Coordinates{geojson.MultiPoint(ls)}
 }
 
-// NewGeometryFromMultiPoint creates a geometry from points set.
-func NewGeometryFromMultiPoint(ps orb.MultiPoint) Geometry {
-	return NewGeometryFromPath(geojson.LineString(ps))
+func (c Coordinates) toPolyline(in ...float64) []byte {
+	scale := 1e6
+	if len(in) > 0 {
+		scale = in[0]
+	}
+	var coords [][]float64
+	for _, p := range c.MultiPoint {
+		coords = append(coords, []float64{p.X(), p.Y()})
+	}
+	codec := polyline.Codec{Dim: 2, Scale: scale}
+	return codec.EncodeCoords(nil, coords)
 }
 
-// Polyline generates a polyline in Google format
-func (g *Geometry) Polyline(factor ...int) string {
-	f := 1.0e5
-	if len(factor) != 0 {
-		f = float64(factor[0])
+func (c Coordinates) MarshalJSON() ([]byte, error) {
+	return c.toPolyline(), nil
+}
+
+func coordsToMultiPoint(coords [][]float64) geojson.MultiPoint {
+	var mp geojson.MultiPoint
+	for _, p := range coords {
+		mp = append(mp, orb.Point([2]float64{p[1], p[0]}))
+	}
+	return mp
+}
+
+func (c *Coordinates) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return nil
 	}
 
-	var pLat int
-	var pLng int
-
-	var result bytes.Buffer
-	scratch1 := make([]byte, 0, 50)
-	scratch2 := make([]byte, 0, 50)
-
-	for _, p := range g.LineString {
-		lat5 := int(math.Floor(p.Lat()*f + 0.5))
-		lng5 := int(math.Floor(p.Lon()*f + 0.5))
-
-		deltaLat := lat5 - pLat
-		deltaLng := lng5 - pLng
-
-		pLat = lat5
-		pLng = lng5
-
-		result.Write(append(encodeSignedNumber(deltaLat, scratch1), encodeSignedNumber(deltaLng, scratch2)...))
-
-		scratch1 = scratch1[:0]
-		scratch2 = scratch2[:0]
+	// Is it a string?
+	var encoded string
+	if err := json.Unmarshal(data, &encoded); err == nil {
+		codec := polyline.Codec{Dim: 2, Scale: 1e6}
+		coords, _, err := codec.DecodeCoords([]byte(encoded))
+		if err != nil {
+			return err
+		}
+		c.MultiPoint = coordsToMultiPoint(coords)
+		return nil
 	}
 
-	return result.String()
-}
-
-func encodeSignedNumber(num int, result []byte) []byte {
-	shiftedNum := num << 1
-
-	if num < 0 {
-		shiftedNum = ^shiftedNum
+	geom, err := geojson.UnmarshalGeometry(data)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal geojson geometry, err: %v", err)
+	}
+	if geom.Type != "LineString" {
+		return fmt.Errorf("unexpected geometry type: %v", geom.Type)
 	}
 
-	for shiftedNum >= 0x20 {
-		result = append(result, byte(0x20|(shiftedNum&0x1f)+63))
-		shiftedNum >>= 5
+	var mp geojson.MultiPoint
+	for _, p := range geom.Coordinates.(orb.LineString) {
+		mp = append(mp, orb.Point([2]float64{p.X(), p.Y()}))
 	}
+	c.MultiPoint = mp
 
-	return append(result, byte(shiftedNum+63))
-}
-
-// UnmarshalJSON parses a geo path from points set or a polyline
-func (g *Geometry) UnmarshalJSON(b []byte) error {
-	return g.LineString.UnmarshalJSON(b)
-}
-
-// MarshalJSON generates a polyline in Google polyline6 format
-func (g Geometry) MarshalJSON() ([]byte, error) {
-	return json.Marshal(g.Polyline(polyline6Factor))
+	return nil
 }
 
 // Tidy represents a tidy param for osrm5 match request
@@ -200,7 +187,7 @@ func (c ContinueStraight) String() string {
 // Request contains parameters for OSRM query
 type Request struct {
 	Profile string
-	Coords  Geometry
+	Coords  Coordinates
 	Service string
 	Options Options
 }
@@ -213,7 +200,7 @@ func (r *Request) URL(serverURL string) (string, error) {
 	if r.Profile == "" {
 		return "", ErrEmptyProfileName
 	}
-	if len(r.Coords.LineString) == 0 {
+	if len(r.Coords.MultiPoint) == 0 {
 		return "", ErrNoCoordinates
 	}
 	// http://{server}/{service}/{version}/{profile}/{coordinates}[.{format}]?option=value&option=value
@@ -222,7 +209,7 @@ func (r *Request) URL(serverURL string) (string, error) {
 		r.Service, // service
 		"v1",      // version
 		r.Profile, // profile
-		"polyline(" + url.PathEscape(r.Coords.Polyline(polyline5Factor)) + ")", // coordinates
+		"polyline(" + url.PathEscape(string(r.Coords.toPolyline())) + ")", // coordinates
 	}, "/")
 	if len(r.Options) > 0 {
 		url += "?" + r.Options.Encode() // options

@@ -4,6 +4,7 @@ import (
 	"github.com/openmarketplaceengine/go-osrm/route"
 	"github.com/openmarketplaceengine/go-osrm/types"
 	"github.com/paulmach/orb"
+	"github.com/paulmach/orb/geojson"
 )
 
 // Request represents a request to the match method.
@@ -18,7 +19,7 @@ type Request struct {
 	// {longitude},{latitude};{longitude},{latitude}[;{longitude},{latitude} ...]
 	// or polyline
 	// ({polyline}) or polyline6({polyline6})
-	Coordinates types.Geometry
+	Coordinates types.Coordinates
 
 	// Limits the search to segments with given bearing in degrees towards true
 	// north in clockwise direction.
@@ -76,8 +77,8 @@ type Matching struct {
 	route.Route
 	// Confidence of the matching. float value between 0 and 1. 1 is very
 	// confident that the matching is correct.
-	Confidence float64        `json:"confidence"`
-	Geometry   types.Geometry `json:"geometry"`
+	Confidence float64            `json:"confidence"`
+	Geometry   geojson.LineString `json:"geometry"`
 }
 
 func (r Request) Request() *types.Request {

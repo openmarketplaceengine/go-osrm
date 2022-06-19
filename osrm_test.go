@@ -16,18 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var geometry = types.NewGeometryFromMultiPoint(
-	orb.MultiPoint{
-		{-73.990185, 40.714701},
-		{-73.991801, 40.717571},
-		{-73.985751, 40.715651},
-	},
-)
+var geometry = geojson.LineString{
+	{-73.990185, 40.714701},
+	{-73.991801, 40.717571},
+	{-73.985751, 40.715651},
+}
 
 func fixturedJSON(name string) []byte {
 	data, err := ioutil.ReadFile("testdata/" + name + ".json")
@@ -71,7 +68,7 @@ func TestErrorOnRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	geom := types.NewGeometryFromMultiPoint(orb.MultiPoint{{0.1, 0.1}})
+	geom := geojson.LineString{{0.1, 0.1}}
 
 	assert := func(t *testing.T, err error) {
 		t.Helper()
@@ -163,12 +160,10 @@ func TestRouteRequest(t *testing.T) {
 	require.Equal("", step0.Name)
 	require.Equal(float32(5.0), step0.Duration)
 	require.Equal(float32(33.1), step0.Distance)
-	require.Equal(types.Geometry{
-		LineString: geojson.LineString{
-			{-73.9902, 40.7147},
-			{-73.99023, 40.7146},
-			{-73.99025, 40.71441},
-		},
+	require.Equal(geojson.LineString{
+		{-73.9902, 40.7147},
+		{-73.99023, 40.7146},
+		{-73.99025, 40.71441},
 	}, step0.Geometry)
 }
 
@@ -238,9 +233,9 @@ func TestNearestRequest(t *testing.T) {
 
 	r, err := osrm.Nearest(context.Background(), nearest.Request{
 		Profile: "car",
-		Coordinates: types.NewGeometryFromMultiPoint(orb.MultiPoint{
+		Coordinates: geojson.LineString{
 			{-73.994550, 40.735551},
-		}),
+		},
 		Number: 5,
 	})
 

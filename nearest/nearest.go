@@ -18,7 +18,7 @@ type Request struct {
 	// or polyline
 	// ({polyline}) or polyline6({polyline6})
 	// Length should be 1.
-	Coordinates types.Geometry
+	Coordinates types.Coordinates
 
 	// Limits the search to segments with given bearing in degrees towards true
 	// north in clockwise direction.

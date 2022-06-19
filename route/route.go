@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 	"github.com/openmarketplaceengine/go-osrm/types"
+	"github.com/paulmach/orb/geojson"
 	"strconv"
 
 	"github.com/paulmach/orb"
@@ -11,7 +12,7 @@ import (
 // Request represents a request to the route method
 type Request struct {
 	Profile          string
-	Coordinates      types.Geometry
+	Coordinates      types.Coordinates
 	Bearings         []types.Bearing
 	Steps            types.Steps
 	Annotations      types.Annotations
@@ -37,12 +38,12 @@ type Waypoint struct {
 
 // Route represents a route through (potentially multiple) points.
 type Route struct {
-	Distance   float32        `json:"distance"`
-	Duration   float32        `json:"duration"`
-	WeightName string         `json:"weight_name"`
-	Weight     float32        `json:"weight"`
-	Geometry   types.Geometry `json:"geometry"`
-	Legs       []Leg          `json:"legs"`
+	Distance   float32            `json:"distance"`
+	Duration   float32            `json:"duration"`
+	WeightName string             `json:"weight_name"`
+	Weight     float32            `json:"weight"`
+	Geometry   geojson.LineString `json:"geometry"`
+	Legs       []Leg              `json:"legs"`
 }
 
 // Leg represents a route between two waypoints.
@@ -64,15 +65,15 @@ type Annotation struct {
 
 // Step represents a route geometry
 type Step struct {
-	Distance      float32        `json:"distance"`
-	Duration      float32        `json:"duration"`
-	Geometry      types.Geometry `json:"geometry"`
-	Name          string         `json:"name"`
-	Mode          string         `json:"mode"`
-	DrivingSide   string         `json:"driving_side"`
-	Weight        float32        `json:"weight"`
-	Maneuver      StepManeuver   `json:"maneuver"`
-	Intersections []Intersection `json:"intersections,omitempty"`
+	Distance      float32            `json:"distance"`
+	Duration      float32            `json:"duration"`
+	Geometry      geojson.LineString `json:"geometry"`
+	Name          string             `json:"name"`
+	Mode          string             `json:"mode"`
+	DrivingSide   string             `json:"driving_side"`
+	Weight        float32            `json:"weight"`
+	Maneuver      StepManeuver       `json:"maneuver"`
+	Intersections []Intersection     `json:"intersections,omitempty"`
 }
 
 type Intersection struct {

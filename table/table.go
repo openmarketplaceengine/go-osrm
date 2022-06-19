@@ -7,7 +7,7 @@ import (
 // Request represents a request to the table method
 type Request struct {
 	Profile               string
-	Coordinates           types.Geometry
+	Coordinates           types.Coordinates
 	Sources, Destinations []int
 }
 
