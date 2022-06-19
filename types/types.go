@@ -1,72 +1,10 @@
-package osrm
+package types
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
-
-	geo "github.com/paulmach/go.geo"
-	geojson "github.com/paulmach/go.geojson"
 )
-
-const (
-	polyline5Factor = 1.0e5
-	polyline6Factor = 1.0e6
-)
-
-// Geometry represents a points set
-type Geometry struct {
-	geo.Path
-}
-
-// NewGeometryFromPath creates a geometry from a path.
-func NewGeometryFromPath(path geo.Path) Geometry {
-	return Geometry{path}
-}
-
-// NewGeometryFromPointSet creates a geometry from points set.
-func NewGeometryFromPointSet(ps geo.PointSet) Geometry {
-	return NewGeometryFromPath(geo.Path{PointSet: ps})
-}
-
-// Polyline generates a polyline in Google format
-func (g *Geometry) Polyline(factor ...int) string {
-	if len(factor) == 0 {
-		return g.Encode(polyline5Factor)
-	}
-
-	return g.Encode(factor[0])
-}
-
-// UnmarshalJSON parses a geo path from points set or a polyline
-func (g *Geometry) UnmarshalJSON(b []byte) error {
-	if len(b) == 0 {
-		return nil
-	}
-
-	var encoded string
-	if err := json.Unmarshal(b, &encoded); err == nil {
-		g.Path = *geo.NewPathFromEncoding(encoded, polyline6Factor)
-		return nil
-	}
-
-	geom, err := geojson.UnmarshalGeometry(b)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal geojson geometry, err: %v", err)
-	}
-	if !geom.IsLineString() {
-		return fmt.Errorf("unexpected geometry type: %v", geom.Type)
-	}
-	g.Path = *geo.NewPathFromXYSlice(geom.LineString)
-
-	return nil
-}
-
-// MarshalJSON generates a polyline in Google polyline6 format
-func (g Geometry) MarshalJSON() ([]byte, error) {
-	return json.Marshal(g.Polyline(polyline6Factor))
-}
 
 // Tidy represents a tidy param for osrm5 match request
 type Tidy string
@@ -116,7 +54,8 @@ func (s Steps) String() string {
 	return string(s)
 }
 
-// Gaps represents a gaps param for osrm5 match request
+// Gaps represents a gaps param for osrm5 match request.
+// Allows the input track splitting based on huge timestamp gaps between points.
 type Gaps string
 
 // Supported gaps param values
@@ -174,35 +113,35 @@ func (c ContinueStraight) String() string {
 	return string(c)
 }
 
-// request contains parameters for OSRM query
-type request struct {
-	profile string
-	coords  Geometry
-	service string
-	options options
+// Request contains parameters for OSRM query
+type Request struct {
+	Profile string
+	Coords  Coordinates
+	Service string
+	Options Options
 }
 
 // URL generates a url for OSRM request
-func (r *request) URL(serverURL string) (string, error) {
-	if r.service == "" {
+func (r *Request) URL(serverURL string) (string, error) {
+	if r.Service == "" {
 		return "", ErrEmptyServiceName
 	}
-	if r.profile == "" {
+	if r.Profile == "" {
 		return "", ErrEmptyProfileName
 	}
-	if r.coords.Length() == 0 {
+	if len(r.Coords.MultiPoint) == 0 {
 		return "", ErrNoCoordinates
 	}
 	// http://{server}/{service}/{version}/{profile}/{coordinates}[.{format}]?option=value&option=value
 	url := strings.Join([]string{
 		serverURL, // server
-		r.service, // service
-		version,   // version
-		r.profile, // profile
-		"polyline(" + url.PathEscape(r.coords.Polyline(polyline5Factor)) + ")", // coordinates
+		r.Service, // service
+		"v1",      // version
+		r.Profile, // profile
+		"polyline(" + url.PathEscape(string(r.Coords.toPolyline())) + ")", // coordinates
 	}, "/")
-	if len(r.options) > 0 {
-		url += "?" + r.options.encode() // options
+	if len(r.Options) > 0 {
+		url += "?" + r.Options.Encode() // options
 	}
 	return url, nil
 }
@@ -216,7 +155,7 @@ func (b Bearing) String() string {
 	return fmt.Sprintf("%d,%d", b.Value, b.Range)
 }
 
-func bearings(br []Bearing) string {
+func Bearings(br []Bearing) string {
 	s := make([]string, len(br))
 	for i, b := range br {
 		s[i] = b.String()

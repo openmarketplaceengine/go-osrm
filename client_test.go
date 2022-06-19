@@ -3,6 +3,7 @@ package osrm
 import (
 	"context"
 	"fmt"
+	"github.com/openmarketplaceengine/go-osrm/types"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,10 +26,10 @@ func Test_doRequestWithBadHTTPCode(t *testing.T) {
 	defer ts.Close()
 
 	c := newClient(ts.URL, &http.Client{})
-	req := request{
-		profile: "something",
-		coords:  geometry,
-		service: "foobar",
+	req := types.Request{
+		Profile: "something",
+		Coords:  geometry,
+		Service: "foobar",
 	}
 	err := c.doRequest(context.Background(), &req, nil)
 	require.EqualError(t, err, "unexpected http status code 500 with body \"<html><head>\"")
@@ -41,10 +42,10 @@ func Test_doRequestWithBodyUnmarshalFailure(t *testing.T) {
 	defer ts.Close()
 
 	c := newClient(ts.URL, &http.Client{})
-	req := request{
-		profile: "something",
-		coords:  geometry,
-		service: "foobar",
+	req := types.Request{
+		Profile: "something",
+		Coords:  geometry,
+		Service: "foobar",
 	}
 	err := c.doRequest(context.Background(), &req, nil)
 	require.EqualError(t, err, "failed to unmarshal body \"\": unexpected end of JSON input")

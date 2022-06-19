@@ -1,30 +1,31 @@
-package osrm
+package nearest
 
 import (
+	"github.com/openmarketplaceengine/go-osrm/types"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNearestRequestOverviewOption(t *testing.T) {
-	req := NearestRequest{
+	req := Request{
 		Number: 2,
-		Bearings: []Bearing{
+		Bearings: []types.Bearing{
 			{60, 380},
 		},
 	}
 	assert.Equal(
 		t,
 		"bearings=60%2C380&number=2",
-		req.request().options.encode())
+		req.Request().Options.Encode())
 
-	req = NearestRequest{
-		Bearings: []Bearing{
+	req = Request{
+		Bearings: []types.Bearing{
 			{60, 380},
 		},
 	}
 	assert.Equal(
 		t,
 		"bearings=60%2C380",
-		req.request().options.encode())
+		req.Request().Options.Encode())
 }

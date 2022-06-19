@@ -3,6 +3,12 @@ package osrm
 import (
 	"context"
 	"fmt"
+	"github.com/openmarketplaceengine/go-osrm/match"
+	"github.com/openmarketplaceengine/go-osrm/nearest"
+	"github.com/openmarketplaceengine/go-osrm/route"
+	"github.com/openmarketplaceengine/go-osrm/table"
+	"github.com/openmarketplaceengine/go-osrm/types"
+	"github.com/paulmach/orb/geojson"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,18 +16,15 @@ import (
 	"testing"
 	"time"
 
-	geo "github.com/paulmach/go.geo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var geometry = NewGeometryFromPointSet(
-	geo.PointSet{
-		{-73.990185, 40.714701},
-		{-73.991801, 40.717571},
-		{-73.985751, 40.715651},
-	},
-)
+var geometry = geojson.LineString{
+	{-73.990185, 40.714701},
+	{-73.991801, 40.717571},
+	{-73.985751, 40.715651},
+}
 
 func fixturedJSON(name string) []byte {
 	data, err := ioutil.ReadFile("testdata/" + name + ".json")
@@ -49,10 +52,10 @@ func TestErrorWithTimeout(t *testing.T) {
 
 	var nothing response
 
-	req := request{
-		service: "nothing",
-		profile: "nothing",
-		coords:  geometry,
+	req := types.Request{
+		Service: "nothing",
+		Profile: "nothing",
+		Coords:  geometry,
 	}
 
 	err := osrm.query(context.Background(), &req, nothing)
@@ -65,16 +68,16 @@ func TestErrorOnRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	geom := NewGeometryFromPointSet(geo.PointSet{{0.1, 0.1}})
+	geom := geojson.LineString{{0.1, 0.1}}
 
 	assert := func(t *testing.T, err error) {
 		t.Helper()
 		require.EqualError(t, err, "InvalidQuery - Query string malformed close to position 28")
-		assert.Equal(t, ErrorCodeInvalidQuery, err.(ResponseStatus).ErrCode())
+		assert.Equal(t, types.ErrorCodeInvalidQuery, err.(types.ResponseStatus).ErrCode())
 	}
 
 	t.Run("route", func(t *testing.T) {
-		_, err := osrm.Route(context.Background(), RouteRequest{
+		_, err := osrm.Route(context.Background(), route.Request{
 			Profile:     "car",
 			Coordinates: geom,
 		})
@@ -83,7 +86,7 @@ func TestErrorOnRequest(t *testing.T) {
 	})
 
 	t.Run("match", func(t *testing.T) {
-		_, err := osrm.Match(context.Background(), MatchRequest{
+		_, err := osrm.Match(context.Background(), match.Request{
 			Profile:     "car",
 			Coordinates: geom,
 		})
@@ -92,7 +95,7 @@ func TestErrorOnRequest(t *testing.T) {
 	})
 
 	t.Run("table", func(t *testing.T) {
-		_, err := osrm.Table(context.Background(), TableRequest{
+		_, err := osrm.Table(context.Background(), table.Request{
 			Profile:     "car",
 			Coordinates: geom,
 		})
@@ -101,7 +104,7 @@ func TestErrorOnRequest(t *testing.T) {
 	})
 
 	t.Run("nearest", func(t *testing.T) {
-		_, err := osrm.Nearest(context.Background(), NearestRequest{
+		_, err := osrm.Nearest(context.Background(), nearest.Request{
 			Profile:     "car",
 			Coordinates: geom,
 		})
@@ -119,13 +122,13 @@ func TestRouteRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	r, err := osrm.Route(context.Background(), RouteRequest{
+	r, err := osrm.Route(context.Background(), route.Request{
 		Profile:          "car",
 		Coordinates:      geometry,
-		Annotations:      AnnotationsTrue,
-		Geometries:       GeometriesPolyline6,
-		Overview:         OverviewFull,
-		ContinueStraight: ContinueStraightTrue,
+		Annotations:      types.AnnotationsTrue,
+		Geometries:       types.GeometriesPolyline6,
+		Overview:         types.OverviewFull,
+		ContinueStraight: types.ContinueStraightTrue,
 	})
 
 	require := require.New(t)
@@ -157,12 +160,10 @@ func TestRouteRequest(t *testing.T) {
 	require.Equal("", step0.Name)
 	require.Equal(float32(5.0), step0.Duration)
 	require.Equal(float32(33.1), step0.Distance)
-	require.Equal(Geometry{
-		Path: *geo.NewPathFromXYSlice([][]float64{
-			{-73.9902, 40.7147},
-			{-73.99023, 40.7146},
-			{-73.99025, 40.71441},
-		}),
+	require.Equal(geojson.LineString{
+		{-73.9902, 40.7147},
+		{-73.99023, 40.7146},
+		{-73.99025, 40.71441},
 	}, step0.Geometry)
 }
 
@@ -175,7 +176,7 @@ func TestTableRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	r, err := osrm.Table(context.Background(), TableRequest{Profile: "car", Coordinates: geometry})
+	r, err := osrm.Table(context.Background(), table.Request{Profile: "car", Coordinates: geometry})
 
 	require := require.New(t)
 
@@ -197,7 +198,7 @@ func TestMatchRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	r, err := osrm.Match(context.Background(), MatchRequest{
+	r, err := osrm.Match(context.Background(), match.Request{
 		Profile:     "car",
 		Coordinates: geometry,
 	})
@@ -230,11 +231,11 @@ func TestNearestRequest(t *testing.T) {
 
 	osrm := NewFromURL(ts.URL)
 
-	r, err := osrm.Nearest(context.Background(), NearestRequest{
+	r, err := osrm.Nearest(context.Background(), nearest.Request{
 		Profile: "car",
-		Coordinates: NewGeometryFromPointSet(geo.PointSet{
+		Coordinates: geojson.LineString{
 			{-73.994550, 40.735551},
-		}),
+		},
 		Number: 5,
 	})
 

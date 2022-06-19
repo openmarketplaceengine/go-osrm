@@ -1,4 +1,4 @@
-package osrm
+package types
 
 import "errors"
 
